@@ -1,0 +1,15 @@
+name: "Healthcheck PRD"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: BACKEND-PRD-HEALTHCHECK
+        run: |
+          curl -X GET --show-error --fail "https://api.syncremote.co/healthcheck"

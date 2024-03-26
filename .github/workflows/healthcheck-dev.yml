@@ -1,0 +1,15 @@
+name: "Healthcheck DEV"
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: BACKEND-DEV-HEALTHCHECK
+        run: |
+          curl -X GET --show-error --fail "https://dev.api.syncremote.co/healthcheck"

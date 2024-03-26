@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!main'
+      - '!dev'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: 18
+
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Linter
+        run: npm run check-lint
+
+      - name: Test
+        run: npm run test-pass-with-no-test
+
+      - name: Create config/config.env file
+        env:
+          DEPLOY_CONFIG_ENV: ${{ secrets.DEPLOY_LOCALHOST_CONFIG_ENV }}
+        run: |
+          touch config/config.env
+          echo "$DEPLOY_CONFIG_ENV" >> config/config.env
+
+      - name: Build docker image and test docker container healthcheck endpoint
+        run: |
+          docker build -t backend .
+          docker run -d -p 80:3200 backend
+
+      - name: Wait for Service Startup
+        run: sleep 10 # Adjust the delay time as needed
+
+      - name: Test docker container is working as expected
+        run: |
+          sleep 10
+          max_attempts=5
+          seconds_between_attempts=10
+          for ((i=1; i<=$max_attempts; i++)); do
+            http_status=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:80/healthcheck)
+            if [ "$http_status" = "200" ]; then
+              echo "Container is healthy."
+              exit 0  # Success
+            else
+              echo "Container is not healthy. Attempt $i of $max_attempts. HTTP Status: $http_status"
+              if [ $i -lt $max_attempts ]; then
+                sleep $seconds_between_attempts
+              else
+                echo "Container is still not healthy after $max_attempts attempts. Marking the action as failed."
+                exit 1  # Failure
+              fi
+            fi
+          done

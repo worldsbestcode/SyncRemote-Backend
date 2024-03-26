@@ -1,0 +1,59 @@
+name: cd-prd
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: 18
+
+jobs:
+  deploy:
+    name: Deploy
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Create config/config.env file
+        env:
+          DEPLOY_CONFIG_ENV: ${{ secrets.DEPLOY_PRD_CONFIG_ENV }}
+        run: |
+          touch config/config.env
+          echo "$DEPLOY_CONFIG_ENV" >> config/config.env
+
+      # Authenticate against server
+      - name: Authenticate against server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_PRD_HOST }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_PRD_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H $DEPLOY_HOST > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      # Copy app files
+      - name: Copy app files
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_PRD_HOST }}
+          DEPLOY_USERNAME: ${{ secrets.DEPLOY_PRD_USERNAME }}
+        run: |
+          cd $GITHUB_WORKSPACE
+          rsync -av --no-perms --no-owner --no-group --delete \
+            --exclude={'.git','.github','.env'} \
+            -e "ssh -i ~/.ssh/deploy_key" ./ ${DEPLOY_USERNAME}@${DEPLOY_HOST}:/home/${DEPLOY_USERNAME}/app
+
+      # Install app
+      - name: Install app
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_PRD_HOST }}
+          DEPLOY_USERNAME: ${{ secrets.DEPLOY_PRD_USERNAME }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${DEPLOY_USERNAME}@${DEPLOY_HOST} 'cd ~/app && docker container prune -f && docker stop $(docker ps -a -q) 2>/dev/null && docker rmi backend --force 2>/dev/null && docker build -t backend . && docker run -d -p 80:3200 --restart unless-stopped backend'
+    

@@ -1,0 +1,23 @@
+const express = require('express')
+const { updateDetails, saveCafe, reviews, pinCafe, reviewsFilter, subscribe, isSearchLocation, getAllSubscribe, updateOnce, updateNotification, updateNotificationLength } = require('../controllers/registrationController/profileController')
+const { isAuthenticatedUser, authorizeRoles } = require('../middleware/auth')
+const { getSameSchoolData, getSamePinnedCafe, getSameInterest } = require('../controllers/registrationController/registerController')
+const router = express.Router()
+
+router.route('/updateDetails').put(isAuthenticatedUser, updateDetails)
+router.route('/updateonce').put(updateOnce)
+router.route('/saveCafe/:id').patch(isAuthenticatedUser, saveCafe)
+router.route('/reviews/:id').put(isAuthenticatedUser, reviews)
+router.route('/reviewsfilter/:id').put(isAuthenticatedUser, reviewsFilter)
+router.route('/cafepin/:id').patch(isAuthenticatedUser, pinCafe)
+// router.route('/map').get(mapFunc)
+router.route('/subscribetoconnect').put(subscribe)
+router.route('/getsubscribers').get(isAuthenticatedUser, authorizeRoles('admin'), getAllSubscribe)
+router.route('/issearchlocation').put(isAuthenticatedUser, isSearchLocation)
+router.route('/getsameschooldata/:schoolname').get(isAuthenticatedUser, getSameSchoolData)
+router.route('/getsamepinnedcafe').post(isAuthenticatedUser, getSamePinnedCafe)
+router.route('/getsameinterest').post(isAuthenticatedUser, getSameInterest)
+router.route('/updatenotification').put(isAuthenticatedUser, updateNotification)
+router.route('/notificationlength').put(isAuthenticatedUser, updateNotificationLength)
+
+module.exports = router
